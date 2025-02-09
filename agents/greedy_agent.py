@@ -9,75 +9,50 @@ Description:
 Copyright (c) 2025 by LiangSong(sl12160010@gmail.com), All Rights Reserved. 
 """
 import numpy as np
-from utils.board_utils import find_best_block, find_best_extend, choose_best_position
+from utils.board_utils import evaluate_board_map, calculate_position_weight, choose_best_position
 
 class GreedyAgent:
-    """贪心策略智能体
-
-    策略说明：
-      1. 如果对手存在明显威胁（例如连续棋型），则优先选择堵截对手。
-      2. 否则，选择扩展己方棋型的最佳位置。
-      3. 如果以上策略都没有生成合适位置，则选择靠近棋盘中心的空位。
     """
+    改进后的贪心策略智能体。
     
-    def __init__(self, board_size=15):
+    该 agent 先对棋盘上所有空位进行评估，生成一个评分 map，
+    每个位置包含进攻分数、防守分数和二者加权的综合分数。
+    在选择行动时，将综合分数乘以位置权重（靠中心得分更高），
+    并选择得分最高的落子点；若无候选，则选择靠近中心的空位。
+    """
+    def __init__(self, board_size=15, win_length=5, offense_weight=1.0, defense_weight=1.0):
         if not isinstance(board_size, int) or board_size < 5:
             raise ValueError("board_size must be an integer >= 5")
         self.board_size = board_size
+        self.win_length = win_length
+        self.offense_weight = offense_weight
+        self.defense_weight = defense_weight
+        self.score_map = {}
+        for x in range(board_size):
+            for y in range(board_size):
+                self.score_map[(x, y)] = {'offense': 0, 'defense': 0, 'combined': 0}
 
     def select_action(self, board, player):
-        """
-        选择落子位置。
-
-        策略步骤：
-          1. 判断对手棋子（如果玩家用 1 或 -1，则对手为 -player；否则假设玩家为 1 与 2）。
-          2. 调用 find_best_block 尝试堵截对手形成威胁的棋型。
-          3. 如果无堵截威胁，则调用 find_best_extend 扩展己方棋型。
-          4. 若前述策略都无法生成候选位置，则从所有空位中选择一个离中心最近的点。
-
-        Args:
-            board (np.ndarray): 当前棋盘状态，形状为 (board_size, board_size)，空位为 0，其它数值代表棋子。
-            player (int): 当前玩家标识（例如 1 或 2，或 1 或 -1）。
-
-        Returns:
-            tuple or None: 最佳落子位置 (x, y)；如果棋盘已满，则返回 None。
-        """
-        # 计算对手棋子标识
-        if player in [1, -1]:
-            opponent = -player
-        else:
-            opponent = 2 if player == 1 else 1
-
-        # 1. 尝试堵截对手威胁
-        block_move = find_best_block(board, opponent)
-        if block_move is not None:
-            return block_move
-
-        # 2. 尝试扩展己方棋型
-        extend_move = find_best_extend(board, player, win_length=5)
-        if extend_move is not None:
-            return extend_move
-
-        # 3. 默认策略：若以上均未生成落点，则从所有空位中选择离中心最近的点
+        score_map = evaluate_board_map(board, player, self.win_length, self.offense_weight, self.defense_weight)
+        best_move = None
+        best_value = -float('inf')
+        # 遍历所有空位，对综合分数乘以位置权重后选择最高的
+        for (x, y), scores in score_map.items():
+            pos_weight = calculate_position_weight(board.shape[0], x, y)
+            overall = scores['combined'] * pos_weight
+            if overall > best_value:
+                best_value = overall
+                best_move = (x, y)
+        if best_move is not None:
+            return best_move
+        # 若无评估候选（极端情况），则选择靠中心的位置
         empty_positions = list(zip(*np.where(board == 0)))
         return choose_best_position(empty_positions, self.board_size)
 
-
-# ===== 示例：如何使用 GreedyAgent =====
-
-if __name__ == "__main__":
-    # 创建一个空棋盘
-    board_size = 15
-    board = np.zeros((board_size, board_size), dtype=int)
-    
-    # 模拟一些落子（例如，己方与对手）
-    # 假设玩家 1 为己方，玩家 2 为对手（或者使用 1 与 -1 表示）
-    board[7, 7] = 1
-    board[7, 8] = 1
-    board[6, 7] = 2
-    board[8, 7] = 2
-
-    # 创建智能体，并选择下一步落子位置
-    agent = GreedyAgent(board_size=board_size)
-    action = agent.select_action(board, player=1)
-    print("GreedyAgent 建议的落子位置：", action)
+    def get_evaluation_map(self, board, player):
+        """
+        调用之前定义的 evaluate_board_map 函数，返回一个形如：
+        {(i,j): {'offense': ..., 'defense': ..., 'combined': ...}, ...}
+        的评估字典。
+        """
+        return  evaluate_board_map(board, player, self.win_length, self.offense_weight, self.defense_weight)

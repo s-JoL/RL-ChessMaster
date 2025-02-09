@@ -76,7 +76,7 @@ class TestGreedyAgent(unittest.TestCase):
         """测试多个威胁时优先处理最长连"""
         self.env.reset()
         # 在 (7,7)~(7,8) 构造对手两连，在 (5,5)~(7,5) 构造对手三连
-        self.env.board[7, 7:9] = [-1] * 2  # 两连
+        self.env.board[10, 7:9] = [-1] * 2  # 两连
         self.env.board[5:8, 5] = [-1] * 3  # 三连
         board = self.env.board.copy()
         action = self.agent.select_action(board, 1)
