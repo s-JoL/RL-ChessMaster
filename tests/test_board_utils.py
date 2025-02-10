@@ -1,3 +1,13 @@
+"""
+Author: s-JoL(sl12160010@gmail.com)
+Date: 2025-02-10 02:03:38
+LastEditors: s-JoL(sl12160010@gmail.com)
+LastEditTime: 2025-02-10 23:52:12
+FilePath: /RL-ChessMaster/tests/test_board_utils.py
+Description: 
+
+Copyright (c) 2025 by LiangSong(sl12160010@gmail.com), All Rights Reserved. 
+"""
 import unittest
 import numpy as np
 
