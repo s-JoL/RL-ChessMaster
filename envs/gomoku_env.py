@@ -25,11 +25,10 @@ class GomokuEnv(BaseBoardGameEnv):
 
     def step(self, action):
         """执行落子"""
-        x, y = divmod(action, self.board_size)
+        x, y = action
         
         # 非法落子
-        if self.board[x, y] != 0:
-            return self.board, -1, True  # 给予惩罚
+        assert self.board[x, y] == 0
         
         self.board[x, y] = self.current_player
         

@@ -325,7 +325,7 @@ class GomokuGUI:
         if self.env.board[i, j] != 0:
             return
         self.last_player = self.env.get_current_player()
-        action = i * BOARD_SIZE + j
+        action = (i, j)
         board, reward, done = self.env.step(action)
         self.update_board()
         if done:
@@ -342,8 +342,8 @@ class GomokuGUI:
                 self.show_message("平局！")
                 return
             self.last_player = self.env.get_current_player()
-            action = move[0] * BOARD_SIZE + move[1]
-            board, reward, done = self.env.step(action)
+            action = move
+            board, reward, done = self.env.step(move)
             self.update_board()
             if done:
                 self.show_result(reward)
