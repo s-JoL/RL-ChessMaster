@@ -41,9 +41,8 @@ class DQNNet(nn.Module):
     """
     全卷积 ResNet 风格的 DQN 网络，用于五子棋。
     """
-    def __init__(self, board_size, num_residual_blocks=3):
+    def __init__(self, num_residual_blocks=3):
         super(DQNNet, self).__init__()
-        self.board_size = board_size
         self.in_channels = 32 # 初始卷积层输出通道数
 
         # 初始卷积层
@@ -89,7 +88,7 @@ class DQNNet(nn.Module):
 if __name__ == '__main__':
     # 单元测试
     board_size = 15
-    net = DQNNet(board_size)
+    net = DQNNet()
     # 打印网络结构
     print(net)
 
