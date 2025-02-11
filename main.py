@@ -1,17 +1,9 @@
-"""
-Author: s-JoL(sl12160010@gmail.com)
-Date: 2025-02-09 20:50:39
-LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-11 00:00:16
-FilePath: /RL-ChessMaster/main.py
-Description: 
-
-Copyright (c) 2025 by LiangSong(sl12160010@gmail.com), All Rights Reserved. 
-"""
 import tkinter as tk
 from tkinter import messagebox
 from envs.gomoku_env import GomokuEnv
-from agents.greedy_agent import GreedyAgent
+from agents.rule_based_agent import RuleBasedAgent
+from agents.random_agent import RandomAgent
+from agents.dqn_agent import DQNAgent
 
 BOARD_SIZE = 15  # 棋盘行列数
 
@@ -130,7 +122,7 @@ class GomokuGUI:
     def init_game_environment(self):
         """初始化游戏环境和智能体"""
         self.env = GomokuEnv(board_size=BOARD_SIZE)
-        self.agent = GreedyAgent(board_size=BOARD_SIZE)
+        self.agent = GreedyAgent()
         self.initialize_board()
 
     def initialize_board(self):
@@ -243,7 +235,7 @@ class GomokuGUI:
         cell_size = self.get_cell_size()
 
         # 获取评估数据（此处以 human_player 为依据，可根据需要调整）
-        score_map = self.agent.get_evaluation_map(self.env.board, self.human_player)
+        score_map = self.agent.get_evaluation_map(self.env)
 
         offense_vals = [v['offense'] for v in score_map.values()]
         defense_vals = [v['defense'] for v in score_map.values()]
@@ -372,7 +364,7 @@ class GomokuGUI:
         """AI 玩家移动"""
         if self.env.done or self.env.get_current_player() != self.agent_player:
             return
-        move = self.agent.select_action(self.env.board, self.agent_player)
+        move = self.agent.select_action(self.env)
         if move is None:
             self.show_message("平局！")
             return
