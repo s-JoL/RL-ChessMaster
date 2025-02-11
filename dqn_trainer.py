@@ -117,11 +117,44 @@ class DQNTrainer:
 
         return loss.item()
 
+    def evaluate_ending_samples(self):
+        """
+        评估结束样本的 Q 值和真实 Reward 差异.
+        """
+        ending_samples = self.experience_pool.get_ending_samples()
+        if not ending_samples:
+            return 0.0  # No ending samples to evaluate
+
+        q_value_diffs = []
+        for sample in ending_samples:
+            state = sample['state']
+            reward = sample['reward']
+            state_tensor = torch.tensor(state).unsqueeze(0).unsqueeze(0).float() # Batch size 1, channel 1
+            q_values = self.q_net(state_tensor) # Get Q-values for all actions in this state
+            best_action_index = q_values.view(-1).argmax().item()
+
+            # Convert action index back to action coordinates (row, col) - Assuming action space is flattened row by row
+            row = best_action_index // self.board_size
+            col = best_action_index % self.board_size
+            action = np.array([[row, col]])
+
+            action_tensor = torch.tensor(action).long()
+            actions_index = action_tensor[:, 0] * self.board_size + action_tensor[:, 1]
+            predicted_q_value = q_values.view(q_values.size(0), -1).gather(dim=1, index=actions_index.unsqueeze(1)).squeeze(1).item()
+
+
+            q_value_diff = abs(predicted_q_value - reward)
+            q_value_diffs.append(q_value_diff)
+
+        avg_q_value_diff = np.mean(q_value_diffs) if q_value_diffs else 0.0
+        return avg_q_value_diff
+
+
     def train(self, num_episodes=1000):
         """
         训练 DQN agent.  修改为使用 agent_dict 更新经验池.
         """
-        print("\n开始 DQN 训练 (周期性经验池更新)...")
+        print("\n开始 DQN 训练 (周期性经验池更新 + 结束样本评估)...")
         train_start_time = time.time()
 
         for episode in range(num_episodes):
@@ -129,10 +162,15 @@ class DQNTrainer:
             episode_start_time = time.time()
 
             loss = self.train_step()
-
             avg_loss = loss
+
             episode_time = time.time() - episode_start_time
-            print(f"Episode: {episode+1}/{num_episodes}, Avg Loss: {avg_loss:.4f}, Epsilon: {self.epsilon:.2f}, Time: {episode_time:.2f}s")
+
+            # Evaluate ending samples every episode
+            ending_sample_diff = self.evaluate_ending_samples()
+
+            print(f"Episode: {episode+1}/{num_episodes}, Avg Loss: {avg_loss:.4f}, Ending Sample Diff: {ending_sample_diff:.4f}, Epsilon: {self.epsilon:.2f}, Time: {episode_time:.2f}s")
+
 
             if (episode + 1) % 50 == 0:
                 win_count, loss_count, draw_count = self.evaluate_agent(num_games=20)
@@ -145,7 +183,7 @@ class DQNTrainer:
                 self.update_experience_pool(num_episodes)
 
         train_time = time.time() - train_start_time
-        print(f"\nDQN 训练完成 (周期性经验池更新)! 总耗时: {train_time:.2f}s")
+        print(f"\nDQN 训练完成 (周期性经验池更新 + 结束样本评估)! 总耗时: {train_time:.2f}s")
         self.save_model("./dqn_model_periodic_pool_update.pth")
         print("模型已保存至 ./dqn_model_periodic_pool_update.pth")
 
