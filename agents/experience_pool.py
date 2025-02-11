@@ -228,6 +228,20 @@ class ExperiencePool:
         """清空经验池 (保持不变)."""
         self.experience_buckets = {}
 
+    def get_ending_samples(self):
+        """
+        返回经验池中所有即将结束的样本 (reward != 0).
+
+        Returns:
+            list: 包含 reward 不为 0 的经验样本列表.
+        """
+        ending_samples = []
+        for step, bucket in self.experience_buckets.items():
+            for experience in bucket:
+                if experience['reward'] != 0:
+                    ending_samples.append(experience)
+        return ending_samples
+
 if __name__ == '__main__':
     from agents.rule_based_agent import RuleBasedAgent
     from agents.random_agent import RandomAgent
@@ -255,3 +269,12 @@ if __name__ == '__main__':
         ExperienceViewer(batch).mainloop()
     else:
         print("经验池为空，无法采样展示。请检查经验池初始化是否成功。")
+
+    # 测试新的 get_ending_samples 函数
+    ending_samples = experience_pool.get_ending_samples()
+    if ending_samples:
+        print(f"\n找到 {len(ending_samples)} 个即将结束的样本:")
+        for sample in ending_samples[:5]: # 打印前 5 个结束样本查看
+            print(f"  - Game ID: {sample['game_id']}, Step: {sample['game_step']}, Reward: {sample['reward']}")
+    else:
+        print("\n没有找到即将结束的样本。")
