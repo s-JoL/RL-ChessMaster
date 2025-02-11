@@ -2,7 +2,7 @@
 Author: s-JoL(sl12160010@gmail.com)
 Date: 2025-02-11 19:25:15
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-11 23:10:55
+LastEditTime: 2025-02-11 23:43:26
 FilePath: /RL-ChessMaster/dqn_trainer.py
 Description: 
 
@@ -22,7 +22,7 @@ from agents.random_agent import RandomAgent # 导入 RandomAgent
 from agents.dqn_agent import DQNAgent
 
 class DQNTrainer:
-    def __init__(self, board_size=15, learning_rate=1e-4, gamma=0.85,
+    def __init__(self, board_size=15, learning_rate=1e-4, gamma=0.98,
                  epsilon_start=0.9, epsilon_end=0.05, epsilon_decay_steps=10000,
                  target_update_freq=100, experience_pool_capacity=10000,
                  batch_size=64, initial_pool_size=3000,
@@ -72,7 +72,7 @@ class DQNTrainer:
         self.target_net.load_state_dict(self.q_net.state_dict())
 
         # 初始化优化器
-        self.optimizer = optim.Adam(self.q_net.parameters(), lr=learning_rate)
+        self.optimizer = optim.AdamW(self.q_net.parameters(), lr=learning_rate)
 
         # 初始化经验池 (传递 discard_probability_factor, 修改为 agent_dict 初始化)
         self.experience_pool = ExperiencePool(
@@ -110,6 +110,14 @@ class DQNTrainer:
         if not batch:
             return
 
+        # Count terminal states in batch
+        terminal_states_count = sum(1 for exp in batch if exp['is_terminated'])
+        # Log the count to wandb
+        wandb.log({
+            "terminal_states_in_batch": terminal_states_count,
+            "terminal_states_ratio": terminal_states_count / self.batch_size
+        })
+
         batch_state = np.array([exp['state'] for exp in batch])
         batch_action = np.array([exp['action'] for exp in batch])
         batch_reward = np.array([exp['reward'] for exp in batch], dtype=np.float32)
@@ -121,7 +129,7 @@ class DQNTrainer:
         reward_tensor = torch.tensor(batch_reward)
         next_state_tensor = torch.tensor(batch_next_state).unsqueeze(1).float()
         done_mask = torch.tensor(batch_done, dtype=torch.bool)
-
+        self.q_net.train()
         q_values = self.q_net(state_tensor)
 
         actions_index = action_tensor[:, 0] * self.board_size + action_tensor[:, 1]
@@ -164,7 +172,7 @@ class DQNTrainer:
         state_tensor = torch.tensor(batch_state).unsqueeze(1).float()
         action_tensor = torch.tensor(batch_action).long()
         reward_tensor = torch.tensor(batch_reward)
-
+        self.q_net.eval()
         # 计算 Q 值，与 train_step 保持一致的计算方式
         with torch.no_grad():
             q_values = self.q_net(state_tensor)

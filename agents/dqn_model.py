@@ -2,7 +2,7 @@
 Author: s-JoL(sl12160010@gmail.com)
 Date: 2025-02-11 19:25:15
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-11 23:07:50
+LastEditTime: 2025-02-11 23:23:05
 FilePath: /RL-ChessMaster/agents/dqn_model.py
 Description: 
 
@@ -52,7 +52,7 @@ class DQNNet(nn.Module):
     """
     def __init__(self, num_residual_blocks=3):
         super(DQNNet, self).__init__()
-        self.in_channels = 128 # 初始卷积层输出通道数
+        self.in_channels = 64 # 初始卷积层输出通道数
 
         # 初始卷积层
         self.conv1 = nn.Conv2d(1, self.in_channels, kernel_size=3, padding=1, bias=False)

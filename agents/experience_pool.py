@@ -2,7 +2,7 @@
 Author: s-JoL(sl12160010@gmail.com)
 Date: 2025-02-11 19:25:15
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-11 23:11:39
+LastEditTime: 2025-02-11 23:22:03
 FilePath: /RL-ChessMaster/agents/experience_pool.py
 Description: 
 
@@ -255,7 +255,7 @@ class ExperiencePool:
         ending_samples = []
         for step, bucket in self.experience_buckets.items():
             for experience in bucket:
-                if experience['reward'] != 0:
+                if experience['is_terminated']:
                     ending_samples.append(experience)
         return ending_samples
 
