@@ -2,14 +2,13 @@
 Author: s-JoL(sl12160010@gmail.com)
 Date: 2025-02-09 21:12:23
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-09 21:12:27
-FilePath: /RL-ChessMaster/tests/test_greedy_agent.py
+LastEditTime: 2025-02-11 23:09:05
+FilePath: /RL-ChessMaster/tests/test_rule_based_agent.py
 Description: 
 
 Copyright (c) 2025 by LiangSong(sl12160010@gmail.com), All Rights Reserved. 
 """
 import unittest
-import numpy as np
 from agents.rule_based_agent import RuleBasedAgent
 from envs.gomoku_env import GomokuEnv
 

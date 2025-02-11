@@ -1,6 +1,15 @@
+"""
+Author: s-JoL(sl12160010@gmail.com)
+Date: 2025-02-11 19:25:15
+LastEditors: s-JoL(sl12160010@gmail.com)
+LastEditTime: 2025-02-11 23:07:50
+FilePath: /RL-ChessMaster/agents/dqn_model.py
+Description: 
+
+Copyright (c) 2025 by LiangSong(sl12160010@gmail.com), All Rights Reserved. 
+"""
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 class ResidualBlock(nn.Module):
     """
@@ -41,9 +50,9 @@ class DQNNet(nn.Module):
     """
     全卷积 ResNet 风格的 DQN 网络，用于五子棋。
     """
-    def __init__(self, num_residual_blocks=5):
+    def __init__(self, num_residual_blocks=3):
         super(DQNNet, self).__init__()
-        self.in_channels = 32 # 初始卷积层输出通道数
+        self.in_channels = 128 # 初始卷积层输出通道数
 
         # 初始卷积层
         self.conv1 = nn.Conv2d(1, self.in_channels, kernel_size=3, padding=1, bias=False)
@@ -69,7 +78,7 @@ class DQNNet(nn.Module):
         """前向传播"""
         # 确保输入是 float32 类型
         state = state.float()
-
+        state = (state + 1) / 2
         # 初始卷积层
         out = self.conv1(state)
         out = self.bn1(out)

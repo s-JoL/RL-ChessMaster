@@ -1,9 +1,17 @@
+"""
+Author: s-JoL(sl12160010@gmail.com)
+Date: 2025-02-11 19:25:15
+LastEditors: s-JoL(sl12160010@gmail.com)
+LastEditTime: 2025-02-11 23:11:39
+FilePath: /RL-ChessMaster/agents/experience_pool.py
+Description: 
+
+Copyright (c) 2025 by LiangSong(sl12160010@gmail.com), All Rights Reserved. 
+"""
 import random
 import numpy as np
 from envs.gomoku_env import GomokuEnv
 import multiprocessing as mp
-import torch
-import time
 
 class ExperiencePool:
     def __init__(self, capacity, discard_probability_factor=0.001, board_size=15, win_length=5):
@@ -23,9 +31,8 @@ class ExperiencePool:
         self.win_length = win_length
 
         self.experience_buckets = {}
-        self.max_game_steps = board_size * board_size
 
-    def add_experience(self, state, action, reward, next_state, game_step, opponent_action=None, game_id=None, creation_step=0):
+    def add_experience(self, state, action, reward, next_state, game_step, opponent_action=None, game_id=None, creation_step=0, is_terminated=False):
         """向经验池中添加一条经验 (保持不变)."""
         experience = {
             'state': state,
@@ -35,7 +42,8 @@ class ExperiencePool:
             'game_step': game_step,
             'opponent_action': opponent_action,
             'game_id': game_id,
-            'creation_step': creation_step
+            'creation_step': creation_step,
+            'is_terminated': is_terminated
         }
         if game_step not in self.experience_buckets:
             self.experience_buckets[game_step] = []
@@ -82,13 +90,14 @@ class ExperiencePool:
             raise ValueError("agent_dict must contain 'agent_instances' and 'agent_probabilities' keys.")
         if not np.isclose(sum(agent_probabilities), 1.0):
             raise ValueError("agent_probabilities must sum to 1.0.")
+        MAX_STEPS = 50  # 设置最大步数限制
 
         env = GomokuEnv(board_size=self.board_size)
         experiences = []
         for game_id in range((num_experiences + 1) // 1):
             env.reset()
             game_step = 0
-            while game_step < self.max_game_steps:
+            while True:
                 state = env.board.copy()
                 # 轮流使用不同类型的 agent 实例
                 agent_instance = random.choices(agent_instances, weights=agent_probabilities, k=1)[0] # 直接获取 agent 实例
@@ -108,6 +117,13 @@ class ExperiencePool:
                 elif done_opponent:
                     reward_value = -1
 
+                # 检查是否超过最大步数
+                is_terminated = done_agent or done_opponent or game_step >= MAX_STEPS
+                if game_step >= MAX_STEPS:
+                    reward_value = 0
+                    done_agent = True
+                    done_opponent = True
+
                 experiences.append({
                     'state': state.copy(),
                     'action': action,
@@ -116,7 +132,8 @@ class ExperiencePool:
                     'game_step': game_step,
                     'opponent_action': opponent_action,
                     'game_id': game_id,
-                    'creation_step': global_step_count + game_step
+                    'creation_step': global_step_count + game_step,
+                    'is_terminated': is_terminated  # 新增字段，标记模拟是否结束
                 })
 
                 game_step += 1
@@ -251,12 +268,12 @@ if __name__ == '__main__':
     # 初始化 RuleBasedAgent 和 RandomAgent 实例
     rule_based_agent = RuleBasedAgent()
     random_agent = RandomAgent()
-    dqn_agent = DQNAgent('/Users/bayes/Downloads/RL-ChessMaster/q_model.pth')
+    dqn_agent = DQNAgent('./q_model.pth')
 
     # 定义 agent 字典，key 为 'agent_instances' 和 'agent_probabilities'
     agent_dict = {
         'agent_instances': [rule_based_agent, random_agent, dqn_agent], #  直接使用 agent 实例列表
-        'agent_probabilities': [0.9, 0.1, 0.0]
+        'agent_probabilities': [0.9, 0.1, 0.]
     }
 
     experience_pool = ExperiencePool(capacity=50)

@@ -1,14 +1,13 @@
 """
 Author: s-JoL(sl12160010@gmail.com)
-Date: 2025-02-09 21:10:04
+Date: 2025-02-11 19:25:15
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-09 21:10:08
+LastEditTime: 2025-02-11 23:08:07
 FilePath: /RL-ChessMaster/agents/rule_based_agent.py
 Description: 
 
 Copyright (c) 2025 by LiangSong(sl12160010@gmail.com), All Rights Reserved. 
 """
-import numpy as np
 from agents.base_agent import BaseAgent
 from utils.board_utils import evaluate_board_map, calculate_position_weight, choose_best_position
 

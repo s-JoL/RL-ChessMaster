@@ -1,25 +1,54 @@
+"""
+Author: s-JoL(sl12160010@gmail.com)
+Date: 2025-02-11 19:25:15
+LastEditors: s-JoL(sl12160010@gmail.com)
+LastEditTime: 2025-02-11 23:10:55
+FilePath: /RL-ChessMaster/dqn_trainer.py
+Description: 
+
+Copyright (c) 2025 by LiangSong(sl12160010@gmail.com), All Rights Reserved. 
+"""
+import time
 import torch
-import torch.optim as optim
+import wandb
 import random
 import numpy as np
+import torch.optim as optim
 from agents.dqn_model import DQNNet
 from agents.experience_pool import ExperiencePool
 from envs.gomoku_env import GomokuEnv
 from agents.rule_based_agent import RuleBasedAgent # 导入 RuleBasedAgent
 from agents.random_agent import RandomAgent # 导入 RandomAgent
 from agents.dqn_agent import DQNAgent
-import time
 
 class DQNTrainer:
-    def __init__(self, board_size=15, learning_rate=1e-3, gamma=0.99,
+    def __init__(self, board_size=15, learning_rate=1e-4, gamma=0.85,
                  epsilon_start=0.9, epsilon_end=0.05, epsilon_decay_steps=10000,
                  target_update_freq=100, experience_pool_capacity=10000,
-                 batch_size=32, initial_pool_size=3000,
+                 batch_size=64, initial_pool_size=3000,
                  experience_pool_update_freq=100,
                  discard_probability_factor=0.0005):
         """
         初始化 DQN 训练器.  修改为使用 agent_dict 初始化经验池.
         """
+        # Initialize wandb
+        wandb.init(
+            project="gomoku-dqn",
+            config={
+                "board_size": board_size,
+                "learning_rate": learning_rate,
+                "gamma": gamma,
+                "epsilon_start": epsilon_start,
+                "epsilon_end": epsilon_end,
+                "epsilon_decay_steps": epsilon_decay_steps,
+                "target_update_freq": target_update_freq,
+                "experience_pool_capacity": experience_pool_capacity,
+                "batch_size": batch_size,
+                "initial_pool_size": initial_pool_size,
+                "experience_pool_update_freq": experience_pool_update_freq,
+                "discard_probability_factor": discard_probability_factor
+            }
+        )
         self.board_size = board_size
         self.learning_rate = learning_rate
         self.gamma = gamma
@@ -38,8 +67,8 @@ class DQNTrainer:
         self.episode_count = 0
 
         # 初始化 Q 网络和目标网络
-        self.q_net = DQNNet(num_residual_blocks=5)
-        self.target_net = DQNNet(num_residual_blocks=5)
+        self.q_net = DQNNet()
+        self.target_net = DQNNet()
         self.target_net.load_state_dict(self.q_net.state_dict())
 
         # 初始化优化器
@@ -84,7 +113,7 @@ class DQNTrainer:
         batch_state = np.array([exp['state'] for exp in batch])
         batch_action = np.array([exp['action'] for exp in batch])
         batch_reward = np.array([exp['reward'] for exp in batch], dtype=np.float32)
-        batch_done = np.array([exp['reward'] != 0 for exp in batch], dtype=np.bool_)
+        batch_done = np.array([exp['is_terminated'] for exp in batch], dtype=np.bool_)
         batch_next_state = np.array([exp['next_state'] if exp['next_state'] is not None else np.zeros_like(exp['state']) for exp in batch])
 
         state_tensor = torch.tensor(batch_state).unsqueeze(1).float()
@@ -159,16 +188,20 @@ class DQNTrainer:
             episode_start_time = time.time()
 
             loss = self.train_step()
-            avg_loss = loss
 
             episode_time = time.time() - episode_start_time
 
-            # Evaluate ending samples every episode
-            ending_sample_diff = self.evaluate_ending_samples()
-
-            print(f"Episode: {episode+1}/{num_episodes}, Avg Loss: {avg_loss:.4f}, Epsilon: {self.epsilon:.2f}, Time: {episode_time:.2f}s")
+            print(f"Episode: {episode+1}/{num_episodes}, Avg Loss: {loss:.4f}, Epsilon: {self.epsilon:.2f}, Time: {episode_time:.2f}s")
+            # Log basic metrics every episode
+            wandb.log({
+                "episode": episode + 1,
+                "loss": loss if loss else 0,
+                "epsilon": self.epsilon,
+                "episode_time": episode_time
+            })
 
             if (episode + 1) % 50 == 0:
+                self.save_model('q_model.pth')
                 # Evaluate ending samples every 50 episodes
                 ending_sample_diff = self.evaluate_ending_samples()
                 win_count, loss_count, draw_count = self.evaluate_agent(num_games=20)
@@ -177,7 +210,14 @@ class DQNTrainer:
 
                 print(f"Ending Sample Diff: {ending_sample_diff:.4f}")
                 print(f"--- Episode {episode+1} 评估结果: 胜: {win_count}, 负: {loss_count}, 平: {draw_count}, 胜率: {win_rate:.2f} ---")
-
+                # Log evaluation metrics
+                wandb.log({
+                    "ending_sample_diff": ending_sample_diff,
+                    "evaluation/win_count": win_count,
+                    "evaluation/loss_count": loss_count,
+                    "evaluation/draw_count": draw_count,
+                    "evaluation/win_rate": win_rate
+                })
             if (episode + 1) % self.experience_pool_update_freq == 0:
                 self.update_experience_pool(num_episodes)
 
@@ -227,7 +267,11 @@ class DQNTrainer:
         }
 
         print(f"经验池更新策略 - Agent 实例: {[agent.__class__.__name__ if not isinstance(agent, DQNNet) else 'DQNNet' for agent in agent_instances]}, 概率: {agent_probabilities}")
-
+        # Log agent probabilities
+        wandb.log({
+            f"agent_prob/{agent.__class__.__name__}": prob 
+            for agent, prob in zip(agent_instances, agent_probabilities)
+        })
         # 使用多进程并行生成新经验  **调用 _parallel_generate_experiences**
         new_experiences = self.experience_pool._parallel_generate_experiences(num_new_experiences, agent_dict, global_step_count=self.step_count_global)
         self.experience_pool.update_pool_with_probabilistic_removal(
@@ -291,6 +335,7 @@ class DQNTrainer:
 if __name__ == '__main__':
     trainer = DQNTrainer(
         board_size=15, initial_pool_size=5000, experience_pool_capacity=1000,
-        experience_pool_update_freq=1000, discard_probability_factor=0.0005
+        experience_pool_update_freq=200, discard_probability_factor=0.0005
     )
     trainer.train(num_episodes=10000)
+    wandb.finish()

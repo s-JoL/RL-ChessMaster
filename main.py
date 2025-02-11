@@ -122,7 +122,7 @@ class GomokuGUI:
     def init_game_environment(self):
         """初始化游戏环境和智能体"""
         self.env = GomokuEnv(board_size=BOARD_SIZE)
-        self.agent = RuleBasedAgent()
+        self.agent = DQNAgent('./q_model.pth')
         self.initialize_board()
 
     def initialize_board(self):

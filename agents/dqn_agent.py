@@ -1,4 +1,13 @@
-import numpy as np
+"""
+Author: s-JoL(sl12160010@gmail.com)
+Date: 2025-02-11 19:25:15
+LastEditors: s-JoL(sl12160010@gmail.com)
+LastEditTime: 2025-02-11 23:07:44
+FilePath: /RL-ChessMaster/agents/dqn_agent.py
+Description: 
+
+Copyright (c) 2025 by LiangSong(sl12160010@gmail.com), All Rights Reserved. 
+"""
 import torch
 from agents.base_agent import BaseAgent  # 确保导入了 BaseAgent，即使 DQN Agent 可能不直接继承它
 from agents.dqn_model import DQNNet  # 假设 DQNNet 定义在 agents.dqn_model.py 中
@@ -98,5 +107,5 @@ class DQNAgent(BaseAgent):
             q_values = self.q_net(state_tensor).squeeze() # [board_size, board_size]
         for x in range(env.board_size):
             for y in range(env.board_size):
-                evaluation_map[(x, y)] = {'combined': q_values[x, y].item(), 'offense': 0, 'defense': 0} # 存储每个位置的 Q 值
+                evaluation_map[(x, y)] = {'combined': (q_values[x, y].item()+1)*500, 'offense': 0, 'defense': 0} # 存储每个位置的 Q 值
         return evaluation_map

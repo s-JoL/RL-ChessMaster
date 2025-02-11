@@ -1,5 +1,13 @@
-import numpy as np
+"""
+Author: s-JoL(sl12160010@gmail.com)
+Date: 2025-02-11 19:25:15
+LastEditors: s-JoL(sl12160010@gmail.com)
+LastEditTime: 2025-02-11 23:07:39
+FilePath: /RL-ChessMaster/agents/base_agent.py
+Description: 
 
+Copyright (c) 2025 by LiangSong(sl12160010@gmail.com), All Rights Reserved. 
+"""
 class BaseAgent:
     """
     五子棋智能体的基类。
