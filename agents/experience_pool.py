@@ -2,7 +2,7 @@
 Author: s-JoL(sl12160010@gmail.com)
 Date: 2025-02-11 19:25:15
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-11 23:22:03
+LastEditTime: 2025-02-12 00:07:36
 FilePath: /RL-ChessMaster/agents/experience_pool.py
 Description: 
 
@@ -90,7 +90,7 @@ class ExperiencePool:
             raise ValueError("agent_dict must contain 'agent_instances' and 'agent_probabilities' keys.")
         if not np.isclose(sum(agent_probabilities), 1.0):
             raise ValueError("agent_probabilities must sum to 1.0.")
-        MAX_STEPS = 50  # 设置最大步数限制
+        MAX_STEPS = 15  # 设置最大步数限制
 
         env = GomokuEnv(board_size=self.board_size)
         experiences = []
@@ -119,10 +119,8 @@ class ExperiencePool:
 
                 # 检查是否超过最大步数
                 is_terminated = done_agent or done_opponent or game_step >= MAX_STEPS
-                if game_step >= MAX_STEPS:
+                if not done_agent and not done_opponent and is_terminated:
                     reward_value = 0
-                    done_agent = True
-                    done_opponent = True
 
                 experiences.append({
                     'state': state.copy(),
@@ -137,7 +135,7 @@ class ExperiencePool:
                 })
 
                 game_step += 1
-                if done_agent or done_opponent: break
+                if is_terminated: break
 
         return experiences
 
@@ -273,15 +271,16 @@ if __name__ == '__main__':
     # 定义 agent 字典，key 为 'agent_instances' 和 'agent_probabilities'
     agent_dict = {
         'agent_instances': [rule_based_agent, random_agent, dqn_agent], #  直接使用 agent 实例列表
-        'agent_probabilities': [0.9, 0.1, 0.]
+        'agent_probabilities': [0.8, 0.2, 0.]
     }
 
-    experience_pool = ExperiencePool(capacity=50)
+    experience_pool = ExperiencePool(capacity=100)
     print(f"初始化前经验池大小: {experience_pool.get_pool_size()}")
-    experience_pool.initialize_pool(initial_size=100, agent_dict=agent_dict) # 传递 agent_dict
+    experience_pool.initialize_pool(initial_size=500, agent_dict=agent_dict) # 传递 agent_dict
     print(f"初始化后经验池大小: {experience_pool.get_pool_size()}")
 
     batch = experience_pool.sample_experience_batch(batch_size=100)
+    batch = experience_pool.get_ending_samples()
     if batch:
         ExperienceViewer(batch).mainloop()
     else:

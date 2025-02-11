@@ -2,7 +2,7 @@
 Author: s-JoL(sl12160010@gmail.com)
 Date: 2025-02-11 19:25:15
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-11 23:43:26
+LastEditTime: 2025-02-12 00:52:49
 FilePath: /RL-ChessMaster/dqn_trainer.py
 Description: 
 
@@ -22,7 +22,7 @@ from agents.random_agent import RandomAgent # 导入 RandomAgent
 from agents.dqn_agent import DQNAgent
 
 class DQNTrainer:
-    def __init__(self, board_size=15, learning_rate=1e-4, gamma=0.98,
+    def __init__(self, board_size=15, learning_rate=1e-4, gamma=0.95,
                  epsilon_start=0.9, epsilon_end=0.05, epsilon_decay_steps=10000,
                  target_update_freq=100, experience_pool_capacity=10000,
                  batch_size=64, initial_pool_size=3000,
@@ -104,9 +104,9 @@ class DQNTrainer:
 
         self.step_count += 1
         self.step_count_global += 1
-        # ending_samples = self.experience_pool.get_ending_samples()
-        # batch = random.sample(ending_samples, min(self.batch_size, len(ending_samples)))
-        batch = self.experience_pool.sample_experience_batch(self.batch_size)
+        ending_samples = self.experience_pool.get_ending_samples()
+        batch = random.sample(ending_samples, min(self.batch_size, len(ending_samples)))
+        # batch = self.experience_pool.sample_experience_batch(self.batch_size)
         if not batch:
             return
 
@@ -151,19 +151,25 @@ class DQNTrainer:
             self.target_net.load_state_dict(self.q_net.state_dict())
 
         return loss.item()
-
-    def evaluate_ending_samples(self):
+    
+    def evaluate_ending_samples(self, threshold=0.1):
         """
-        评估结束样本的 Q 值和真实 Reward 差异。
+        评估结束样本中Q值和真实Reward差异在阈值内的比例。
+        
+        Args:
+            threshold (float): Q值与reward差异的可接受阈值
+            
+        Returns:
+            float: 差异在阈值内的样本比例 (0.0 到 1.0)
         """
         ending_samples = self.experience_pool.get_ending_samples()
         if not ending_samples:
             return 0.0  # No ending samples to evaluate
 
         # 只评估最近的10个样本
-        batch = ending_samples[:10]
+        batch = random.sample(ending_samples, min(100, len(ending_samples)))
         
-        # 转换为 batch 格式，与 train_step 保持一致
+        # 转换为 batch 格式
         batch_state = np.array([exp['state'] for exp in batch])
         batch_action = np.array([exp['action'] for exp in batch])
         batch_reward = np.array([exp['reward'] for exp in batch], dtype=np.float32)
@@ -172,18 +178,20 @@ class DQNTrainer:
         state_tensor = torch.tensor(batch_state).unsqueeze(1).float()
         action_tensor = torch.tensor(batch_action).long()
         reward_tensor = torch.tensor(batch_reward)
+        
         self.q_net.eval()
-        # 计算 Q 值，与 train_step 保持一致的计算方式
+        # 计算 Q 值
         with torch.no_grad():
             q_values = self.q_net(state_tensor)
             actions_index = action_tensor[:, 0] * self.board_size + action_tensor[:, 1]
             q_value = q_values.view(q_values.size(0), -1).gather(dim=1, index=actions_index.unsqueeze(1)).squeeze(1)
 
-        # 计算 Q 值与实际 reward 的差异
-        q_value_diff = torch.abs(q_value - reward_tensor).mean().item()
+        # 计算差异在阈值内的比例
+        diff = torch.abs(q_value - reward_tensor)
+        within_threshold = (diff <= threshold).float().mean().item()
         
-        return q_value_diff
-
+        return within_threshold
+    
     def train(self, num_episodes=1000):
         """
         训练 DQN agent.  修改为使用 agent_dict 更新经验池.
@@ -211,16 +219,16 @@ class DQNTrainer:
             if (episode + 1) % 50 == 0:
                 self.save_model('q_model.pth')
                 # Evaluate ending samples every 50 episodes
-                ending_sample_diff = self.evaluate_ending_samples()
+                ending_sample_acc = self.evaluate_ending_samples()
                 win_count, loss_count, draw_count = self.evaluate_agent(num_games=20)
                 total_games = win_count + loss_count + draw_count
                 win_rate = win_count / total_games if total_games > 0 else 0.0
 
-                print(f"Ending Sample Diff: {ending_sample_diff:.4f}")
+                print(f"Ending Sample Acc: {ending_sample_acc:.4f}")
                 print(f"--- Episode {episode+1} 评估结果: 胜: {win_count}, 负: {loss_count}, 平: {draw_count}, 胜率: {win_rate:.2f} ---")
                 # Log evaluation metrics
                 wandb.log({
-                    "ending_sample_diff": ending_sample_diff,
+                    "ending_sample_acc": ending_sample_acc,
                     "evaluation/win_count": win_count,
                     "evaluation/loss_count": loss_count,
                     "evaluation/draw_count": draw_count,
@@ -343,7 +351,7 @@ class DQNTrainer:
 if __name__ == '__main__':
     trainer = DQNTrainer(
         board_size=15, initial_pool_size=5000, experience_pool_capacity=1000,
-        experience_pool_update_freq=200, discard_probability_factor=0.0005
+        experience_pool_update_freq=100, discard_probability_factor=0.0005
     )
     trainer.train(num_episodes=10000)
     wandb.finish()
