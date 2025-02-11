@@ -13,7 +13,7 @@ import time
 class DQNTrainer:
     def __init__(self, board_size=15, learning_rate=1e-3, gamma=0.99,
                  epsilon_start=0.9, epsilon_end=0.05, epsilon_decay_steps=10000,
-                 target_update_freq=500, experience_pool_capacity=10000,
+                 target_update_freq=100, experience_pool_capacity=10000,
                  batch_size=32, initial_pool_size=3000,
                  experience_pool_update_freq=100,
                  discard_probability_factor=0.0005):
@@ -156,7 +156,7 @@ class DQNTrainer:
         """
         print("\n--- 开始更新经验池 ---")
         update_start_time = time.time()
-        num_new_experiences = 3000
+        num_new_experiences = 300
 
         # 初始化 Agent 实例 (在 update_experience_pool 中初始化)
         rule_based_agent = RuleBasedAgent()
@@ -192,7 +192,7 @@ class DQNTrainer:
         print(f"经验池更新策略 - Agent 实例: {[agent.__class__.__name__ if not isinstance(agent, DQNNet) else 'DQNNet' for agent in agent_instances]}, 概率: {agent_probabilities}")
 
         # 使用多进程并行生成新经验  **调用 _parallel_generate_experiences**
-        new_experiences = self.experience_pool._parallel_generate_experiences(num_new_experiences, agent_dict, num_processes, self.step_count_global)
+        new_experiences = self.experience_pool._parallel_generate_experiences(num_new_experiences, agent_dict, global_step_count=self.step_count_global)
         self.experience_pool.update_pool_with_probabilistic_removal(
             new_experiences, current_global_step=self.step_count_global
         )
