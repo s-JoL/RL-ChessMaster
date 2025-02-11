@@ -8,11 +8,9 @@ Description:
 
 Copyright (c) 2025 by LiangSong(sl12160010@gmail.com), All Rights Reserved. 
 """
-import gym
 import numpy as np
-from gym import spaces
 
-class BaseBoardGameEnv(gym.Env):
+class BaseBoardGameEnv:
     """通用棋类游戏环境基类"""
     
     def __init__(self, board_size):
@@ -20,12 +18,6 @@ class BaseBoardGameEnv(gym.Env):
         self.board_size = board_size
         self.board = np.zeros((board_size, board_size), dtype=int)
         self.done = False
-
-        # 定义合法动作空间（所有棋盘位置）
-        self.action_space = spaces.Discrete(board_size * board_size)
-        self.observation_space = spaces.Box(
-            low=-1, high=1, shape=(board_size, board_size), dtype=np.int8
-        )
 
     def reset(self):
         """重置棋盘"""
@@ -36,10 +28,6 @@ class BaseBoardGameEnv(gym.Env):
     def step(self, action):
         """执行一步游戏，返回新状态、奖励、是否结束"""
         raise NotImplementedError
-
-    def render(self):
-        """可视化棋盘"""
-        print(self.board)
 
     def get_legal_actions(self):
         """返回当前合法的落子位置"""
