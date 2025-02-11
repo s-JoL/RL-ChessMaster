@@ -19,7 +19,8 @@ class RandomAgent(BaseAgent):
             return None  # 返回 None 表示无法落子
         else:
             random_index = np.random.choice(len(legal_actions)) # 随机选择一个合法动作的索引
-            return legal_actions[random_index] # 返回随机选择的合法动作坐标
+            action = legal_actions[random_index] # 返回随机选择的合法动作坐标
+            return (int(action[0]), int(action[1]))
 
     def get_evaluation_map(self, env):
         """
