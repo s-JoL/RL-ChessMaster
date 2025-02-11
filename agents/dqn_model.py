@@ -41,7 +41,7 @@ class DQNNet(nn.Module):
     """
     全卷积 ResNet 风格的 DQN 网络，用于五子棋。
     """
-    def __init__(self, num_residual_blocks=3):
+    def __init__(self, num_residual_blocks=5):
         super(DQNNet, self).__init__()
         self.in_channels = 32 # 初始卷积层输出通道数
 
@@ -83,6 +83,7 @@ class DQNNet(nn.Module):
 
         # 移除通道维度，变为 (batch_size, board_size, board_size)
         q_values = q_values.squeeze(1)
+        q_values = torch.sigmoid(q_values)
         return q_values
 
 if __name__ == '__main__':
