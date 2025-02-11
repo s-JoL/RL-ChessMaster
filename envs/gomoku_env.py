@@ -14,9 +14,10 @@ from utils.board_utils import check_winner
 class GomokuEnv(BaseBoardGameEnv):
     """五子棋环境"""
     
-    def __init__(self, board_size=15):
+    def __init__(self, board_size=15, win_length=5):
         super().__init__(board_size)
-        self.current_player = 1  # 1 代表 AI，2 代表对手
+        self.current_player = 1
+        self.win_length = win_length
 
     def reset(self):
         """重置棋盘"""
@@ -33,7 +34,7 @@ class GomokuEnv(BaseBoardGameEnv):
         self.board[x, y] = self.current_player
         
         # 检查是否有胜者
-        if check_winner(self.board, x, y):
+        if check_winner(self.board, x, y, self.win_length):
             self.done = True
             return self.board, 1, True  # 胜者获得奖励
         
