@@ -104,9 +104,9 @@ class ExperiencePool:
 
                 reward_value = 0
                 if done_agent:
-                    reward_value = 100
+                    reward_value = 1
                 elif done_opponent:
-                    reward_value = -100
+                    reward_value = -1
 
                 experiences.append({
                     'state': state.copy(),
@@ -169,7 +169,7 @@ class ExperiencePool:
         probability = self.discard_probability_factor * age
         return max(0, min(probability, 1))
 
-    def _parallel_generate_experiences(self, initial_size, agent_dict, num_processes, global_step_count):
+    def _parallel_generate_experiences(self, initial_size, agent_dict, num_processes=mp.cpu_count(), global_step_count=0):
         """
         并行生成经验数据的私有方法，从 initialize_pool 中拆解出来.
 
@@ -237,12 +237,12 @@ if __name__ == '__main__':
     # 初始化 RuleBasedAgent 和 RandomAgent 实例
     rule_based_agent = RuleBasedAgent()
     random_agent = RandomAgent()
-    dqn_agent = DQNAgent()
+    dqn_agent = DQNAgent('/Users/bayes/Downloads/RL-ChessMaster/q_model.pth')
 
     # 定义 agent 字典，key 为 'agent_instances' 和 'agent_probabilities'
     agent_dict = {
         'agent_instances': [rule_based_agent, random_agent, dqn_agent], #  直接使用 agent 实例列表
-        'agent_probabilities': [0.9, 0.05, 0.05]
+        'agent_probabilities': [0.9, 0.1, 0.0]
     }
 
     experience_pool = ExperiencePool(capacity=50)
