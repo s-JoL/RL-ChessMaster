@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from agents.base_agent import BaseAgent  # 确保导入了 BaseAgent，即使 DQN Agent 可能不直接继承它
-from networks.dqn_model import DQNNet  # 假设 DQNNet 定义在 networks.dqn_model.py 中
+from agents.dqn_model import DQNNet  # 假设 DQNNet 定义在 agents.dqn_model.py 中
 
 class DQNAgent(BaseAgent):
     """
@@ -11,7 +11,7 @@ class DQNAgent(BaseAgent):
     并选择 Q 值最大的合法动作。
     与 RuleBasedAgent 保持接口一致，但内部使用 DQN 网络进行决策。
     """
-    def __init__(self, model_path='./dqn_model.pth', q_net=None):
+    def __init__(self, model_path=None, q_net=None):
         """
         初始化 DQN Agent。
 
@@ -26,9 +26,12 @@ class DQNAgent(BaseAgent):
             print("DQNAgent 初始化: 使用直接传入的 DQN 模型实例.")
             self.q_net = q_net #  使用传入的模型
             self.q_net.eval() # 设置为评估模式
-        else: # **否则，仍然从 model_path 加载模型**
-            self.q_net = DQNNet(board_size=board_size) #  初始化 DQN 网络 (如果 q_net 没有传入)
+        elif model_path is not None: # **否则，仍然从 model_path 加载模型**
+            self.q_net = DQNNet() #  初始化 DQN 网络 (如果 q_net 没有传入)
             self._load_model() # 加载预训练模型
+        else:
+            self.q_net = DQNNet() #  初始化 DQN 网络 (如果 q_net 没有传入)
+            self.q_net.eval() # 设置为评估模式
 
     def _load_model(self):
         """加载训练好的 DQN 模型参数 (仅当 q_net 未直接传入时使用)。"""
@@ -73,7 +76,7 @@ class DQNAgent(BaseAgent):
                 best_q_value = q_value
                 best_action = action
 
-        return best_action # 返回 Q 值最大的合法动作
+        return (int(best_action[0]), int(best_action[1])) # 返回 Q 值最大的合法动作
 
     def get_evaluation_map(self, env): # 修改输入为 env
         """
