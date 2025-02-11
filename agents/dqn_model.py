@@ -83,7 +83,7 @@ class DQNNet(nn.Module):
 
         # 移除通道维度，变为 (batch_size, board_size, board_size)
         q_values = q_values.squeeze(1)
-        q_values = torch.sigmoid(q_values)
+        q_values = torch.sigmoid(q_values) * 2 - 1
         return q_values
 
 if __name__ == '__main__':

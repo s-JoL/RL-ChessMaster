@@ -37,9 +37,6 @@ class DQNTrainer:
         self.step_count_global = 0
         self.episode_count = 0
 
-        # 初始化环境
-        self.env = GomokuEnv(board_size=board_size)
-
         # 初始化 Q 网络和目标网络
         self.q_net = DQNNet(num_residual_blocks=5)
         self.target_net = DQNNet(num_residual_blocks=5)
@@ -78,7 +75,8 @@ class DQNTrainer:
 
         self.step_count += 1
         self.step_count_global += 1
-
+        # ending_samples = self.experience_pool.get_ending_samples()
+        # batch = random.sample(ending_samples, min(self.batch_size, len(ending_samples)))
         batch = self.experience_pool.sample_experience_batch(self.batch_size)
         if not batch:
             return
@@ -86,7 +84,7 @@ class DQNTrainer:
         batch_state = np.array([exp['state'] for exp in batch])
         batch_action = np.array([exp['action'] for exp in batch])
         batch_reward = np.array([exp['reward'] for exp in batch], dtype=np.float32)
-        batch_done = np.array([exp['next_state'] is None for exp in batch], dtype=np.bool_)
+        batch_done = np.array([exp['reward'] != 0 for exp in batch], dtype=np.bool_)
         batch_next_state = np.array([exp['next_state'] if exp['next_state'] is not None else np.zeros_like(exp['state']) for exp in batch])
 
         state_tensor = torch.tensor(batch_state).unsqueeze(1).float()
@@ -119,36 +117,35 @@ class DQNTrainer:
 
     def evaluate_ending_samples(self):
         """
-        评估结束样本的 Q 值和真实 Reward 差异.
+        评估结束样本的 Q 值和真实 Reward 差异。
         """
         ending_samples = self.experience_pool.get_ending_samples()
         if not ending_samples:
             return 0.0  # No ending samples to evaluate
 
-        q_value_diffs = []
-        for sample in ending_samples:
-            state = sample['state']
-            reward = sample['reward']
-            state_tensor = torch.tensor(state).unsqueeze(0).unsqueeze(0).float() # Batch size 1, channel 1
-            q_values = self.q_net(state_tensor) # Get Q-values for all actions in this state
-            best_action_index = q_values.view(-1).argmax().item()
+        # 只评估最近的10个样本
+        batch = ending_samples[:10]
+        
+        # 转换为 batch 格式，与 train_step 保持一致
+        batch_state = np.array([exp['state'] for exp in batch])
+        batch_action = np.array([exp['action'] for exp in batch])
+        batch_reward = np.array([exp['reward'] for exp in batch], dtype=np.float32)
 
-            # Convert action index back to action coordinates (row, col) - Assuming action space is flattened row by row
-            row = best_action_index // self.board_size
-            col = best_action_index % self.board_size
-            action = np.array([[row, col]])
+        # 转换为 tensor
+        state_tensor = torch.tensor(batch_state).unsqueeze(1).float()
+        action_tensor = torch.tensor(batch_action).long()
+        reward_tensor = torch.tensor(batch_reward)
 
-            action_tensor = torch.tensor(action).long()
+        # 计算 Q 值，与 train_step 保持一致的计算方式
+        with torch.no_grad():
+            q_values = self.q_net(state_tensor)
             actions_index = action_tensor[:, 0] * self.board_size + action_tensor[:, 1]
-            predicted_q_value = q_values.view(q_values.size(0), -1).gather(dim=1, index=actions_index.unsqueeze(1)).squeeze(1).item()
+            q_value = q_values.view(q_values.size(0), -1).gather(dim=1, index=actions_index.unsqueeze(1)).squeeze(1)
 
-
-            q_value_diff = abs(predicted_q_value - reward)
-            q_value_diffs.append(q_value_diff)
-
-        avg_q_value_diff = np.mean(q_value_diffs) if q_value_diffs else 0.0
-        return avg_q_value_diff
-
+        # 计算 Q 值与实际 reward 的差异
+        q_value_diff = torch.abs(q_value - reward_tensor).mean().item()
+        
+        return q_value_diff
 
     def train(self, num_episodes=1000):
         """
@@ -169,14 +166,16 @@ class DQNTrainer:
             # Evaluate ending samples every episode
             ending_sample_diff = self.evaluate_ending_samples()
 
-            print(f"Episode: {episode+1}/{num_episodes}, Avg Loss: {avg_loss:.4f}, Ending Sample Diff: {ending_sample_diff:.4f}, Epsilon: {self.epsilon:.2f}, Time: {episode_time:.2f}s")
-
+            print(f"Episode: {episode+1}/{num_episodes}, Avg Loss: {avg_loss:.4f}, Epsilon: {self.epsilon:.2f}, Time: {episode_time:.2f}s")
 
             if (episode + 1) % 50 == 0:
+                # Evaluate ending samples every 50 episodes
+                ending_sample_diff = self.evaluate_ending_samples()
                 win_count, loss_count, draw_count = self.evaluate_agent(num_games=20)
                 total_games = win_count + loss_count + draw_count
                 win_rate = win_count / total_games if total_games > 0 else 0.0
 
+                print(f"Ending Sample Diff: {ending_sample_diff:.4f}")
                 print(f"--- Episode {episode+1} 评估结果: 胜: {win_count}, 负: {loss_count}, 平: {draw_count}, 胜率: {win_rate:.2f} ---")
 
             if (episode + 1) % self.experience_pool_update_freq == 0:
