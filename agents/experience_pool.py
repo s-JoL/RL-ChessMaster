@@ -169,20 +169,19 @@ class ExperiencePool:
         probability = self.discard_probability_factor * age
         return max(0, min(probability, 1))
 
-    def initialize_pool(self, initial_size, agent_dict, num_processes=mp.cpu_count(), global_step_count=0):
+    def _parallel_generate_experiences(self, initial_size, agent_dict, num_processes, global_step_count):
         """
-        使用多进程初始化经验池.  进一步简化, agent_dict 直接接收 agent 实例列表.
+        并行生成经验数据的私有方法，从 initialize_pool 中拆解出来.
 
         Args:
-            initial_size (int): 经验池初始填充的经验数量.
-            agent_dict (dict): 智能体字典，key 为 'agent_instances' 和 'agent_probabilities'.
-                                 例如: {'agent_instances': [rule_based_agent, random_agent], 'agent_probabilities': [0.8, 0.2]}.
-                                 'agent_instances' 键的值应为 agent 实例列表.
-            num_processes (int): 使用的进程数量，默认为 CPU 核心数.
+            initial_size (int): 需要生成的经验数量.
+            agent_dict (dict): 智能体字典.
+            num_processes (int): 使用的进程数量.
             global_step_count (int): 全局步数计数器.
+
+        Returns:
+            list: 生成的经验数据列表.
         """
-        if initial_size > self.capacity:
-            initial_size = self.capacity
         pool_size_per_process = initial_size // num_processes
         remainder = initial_size % num_processes
 
@@ -194,19 +193,32 @@ class ExperiencePool:
                 if size > 0:
                     results.append(pool.apply_async(
                         self._generate_initial_experiences,
-                        args=(size, agent_dict, global_step_count) #  直接传递 agent_dict
+                        args=(size, agent_dict, global_step_count)
                     ))
+            experiences = []
             for result in results:
-                experiences = result.get()
-                random.shuffle(experiences)
-                for exp in experiences:
-                    self.add_experience(**exp)
-        total_experiences = sum(len(bucket) for bucket in self.experience_buckets.values())
+                experiences.extend(result.get()) #  直接 extend，无需再单独收集
+        return experiences
+
+    def initialize_pool(self, initial_size, agent_dict, num_processes=mp.cpu_count(), global_step_count=0):
+        """
+        使用多进程初始化经验池.  调用 _parallel_generate_experiences 进行多进程生成.
+        """
+        if initial_size > self.capacity:
+            initial_size = self.capacity
+
+        experiences = self._parallel_generate_experiences(initial_size, agent_dict, num_processes, global_step_count) # 调用并行生成方法
+
+        random.shuffle(experiences) #  打乱顺序
+        for exp in experiences:
+            self.add_experience(**exp) # 添加经验
+
+        total_experiences = self.get_pool_size()
         print(f"\n经验池初始化完成:")
         print(f"- 目标经验数: {initial_size}")
         print(f"- 实际生成数: {total_experiences}")
         print(f"- 步数桶数量: {len(self.experience_buckets)}")
-        print(f"- 最大桶大小: {max(len(bucket) for bucket in self.experience_buckets.values())}")
+        print(f"- 最大桶大小: {max(len(bucket) for bucket in self.experience_buckets.values()) if self.experience_buckets else 0}") # 避免空桶错误
 
     def get_pool_size(self):
         """获取当前经验池中的经验数量 (保持不变)."""
@@ -230,7 +242,7 @@ if __name__ == '__main__':
     # 定义 agent 字典，key 为 'agent_instances' 和 'agent_probabilities'
     agent_dict = {
         'agent_instances': [rule_based_agent, random_agent, dqn_agent], #  直接使用 agent 实例列表
-        'agent_probabilities': [0.3, 0.3, 0.4]
+        'agent_probabilities': [0.9, 0.05, 0.05]
     }
 
     experience_pool = ExperiencePool(capacity=50)
