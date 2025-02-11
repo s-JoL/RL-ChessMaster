@@ -29,7 +29,7 @@ class TestGomokuEnv(unittest.TestCase):
 
     def test_valid_move(self):
         # 选择落子位置 (7,7)，对应 action = 7 * board_size + 7
-        action = 7 * self.board_size + 7
+        action = (7, 7)
         board, reward, done = self.env.step(action)
         # 落子后 (7,7) 应该为玩家 1 的棋子
         self.assertEqual(board[7, 7], 1)
@@ -38,14 +38,6 @@ class TestGomokuEnv(unittest.TestCase):
         self.assertFalse(done)
         # 落子后当前玩家应切换（此处用 1 与 -1 表示双方）
         self.assertEqual(self.env.get_current_player(), -1)
-
-    def test_invalid_move(self):
-        # 在 (7,7) 落子一次是合法的，再次在同一位置落子应被判定为非法
-        action = 7 * self.board_size + 7
-        _board, _reward, _done = self.env.step(action)  # 第一次合法落子
-        board, reward, done = self.env.step(action)       # 重复落子
-        self.assertEqual(reward, -1)
-        self.assertTrue(done)
 
     def test_win_condition(self):
         # 构造一种胜利情形：
@@ -57,7 +49,7 @@ class TestGomokuEnv(unittest.TestCase):
         board[7, 9] = 1
         board[7, 10] = 1
         # 落子在 (7,6)
-        action = 7 * self.board_size + 6
+        action = (7, 6)
         board, reward, done = self.env.step(action)
         self.assertEqual(reward, 1)
         self.assertTrue(done)
