@@ -2,7 +2,7 @@
 Author: s-JoL(sl12160010@gmail.com)
 Date: 2025-02-11 19:25:15
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-12 11:00:50
+LastEditTime: 2025-02-12 11:37:19
 FilePath: /RL-ChessMaster/dqn_trainer.py
 Description: 
 
@@ -22,10 +22,10 @@ from agents.random_agent import RandomAgent # 导入 RandomAgent
 from agents.dqn_agent import DQNAgent
 
 class DQNTrainer:
-    def __init__(self, board_size=15, learning_rate=1e-4, gamma=0.95,
+    def __init__(self, board_size=15, learning_rate=1e-3, gamma=0.95,
                  epsilon_start=0.9, epsilon_end=0.05, epsilon_decay_steps=10000,
                  target_update_freq=100, experience_pool_capacity=10000,
-                 batch_size=64, initial_pool_size=3000,
+                 batch_size=1024, initial_pool_size=3000,
                  experience_pool_update_freq=100,
                  discard_probability_factor=0.0005, 
                  device='cuda' if torch.cuda.is_available() else 'cpu'):
@@ -72,7 +72,7 @@ class DQNTrainer:
 
         # 初始化 Q 网络和目标网络
         self.q_net = DQNNet()
-        self.q_net.load_state_dict(torch.load('q_model_base.pth'))
+        # self.q_net.load_state_dict(torch.load('q_model_base.pth'))
         self.target_net = DQNNet()
         self.target_net.load_state_dict(self.q_net.state_dict())
 
@@ -356,7 +356,7 @@ class DQNTrainer:
 if __name__ == '__main__':
     trainer = DQNTrainer(
         board_size=15, initial_pool_size=5000, experience_pool_capacity=1000,
-        experience_pool_update_freq=100, discard_probability_factor=0.0005
+        experience_pool_update_freq=200, discard_probability_factor=0.0005
     )
-    trainer.train(num_episodes=50000)
+    trainer.train(num_episodes=200000)
     wandb.finish()

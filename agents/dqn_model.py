@@ -2,7 +2,7 @@
 Author: s-JoL(sl12160010@gmail.com)
 Date: 2025-02-11 19:25:15
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-12 11:01:30
+LastEditTime: 2025-02-12 11:25:36
 FilePath: /RL-ChessMaster/agents/dqn_model.py
 Description: 
 
@@ -50,10 +50,10 @@ class DQNNet(nn.Module):
     """
     全卷积 ResNet 风格的 DQN 网络，用于五子棋。
     """
-    def __init__(self, num_residual_blocks=3, device='cuda' if torch.cuda.is_available() else 'cpu'):
+    def __init__(self, num_residual_blocks=16, device='cuda' if torch.cuda.is_available() else 'cpu'):
         super(DQNNet, self).__init__()
         self.device = device
-        self.in_channels = 64 # 初始卷积层输出通道数
+        self.in_channels = 128 # 初始卷积层输出通道数
 
         # 初始卷积层
         self.conv1 = nn.Conv2d(1, self.in_channels, kernel_size=3, padding=1, bias=False)
