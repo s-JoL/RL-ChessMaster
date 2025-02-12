@@ -2,7 +2,7 @@
 Author: s-JoL(sl12160010@gmail.com)
 Date: 2025-02-11 19:25:15
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-11 23:07:44
+LastEditTime: 2025-02-12 11:02:27
 FilePath: /RL-ChessMaster/agents/dqn_agent.py
 Description: 
 
@@ -20,7 +20,7 @@ class DQNAgent(BaseAgent):
     并选择 Q 值最大的合法动作。
     与 RuleBasedAgent 保持接口一致，但内部使用 DQN 网络进行决策。
     """
-    def __init__(self, model_path=None, q_net=None):
+    def __init__(self, model_path=None, q_net=None, device='cuda' if torch.cuda.is_available() else 'cpu'):
         """
         初始化 DQN Agent。
 
@@ -28,6 +28,7 @@ class DQNAgent(BaseAgent):
             model_path (str): 训练好的 DQN 模型文件路径 (当 q_net=None 时使用).
             q_net (DQNNet, optional):  **直接传入的 DQN 模型实例。 如果提供，则忽略 model_path 加载。** 默认为 None.
         """
+        self.device = device
         self.model_path = model_path
         self._q_net_instance = q_net #  保存传入的 q_net 实例
 
@@ -72,7 +73,7 @@ class DQNAgent(BaseAgent):
         if not legal_actions:
             return None # 没有合法动作
 
-        state_tensor = torch.tensor(board).unsqueeze(0).unsqueeze(0).float() # 转换为 DQN 网络需要的输入格式 [1, 1, board_size, board_size]
+        state_tensor = torch.tensor(board).unsqueeze(0).unsqueeze(0).float().to(self.device) # 转换为 DQN 网络需要的输入格式 [1, 1, board_size, board_size]
         with torch.no_grad():
             q_values = self.q_net(state_tensor).squeeze() #  [board_size, board_size]
 
@@ -102,7 +103,7 @@ class DQNAgent(BaseAgent):
         """
         evaluation_map = {}
         board = env.board # 从 env 中获取棋盘
-        state_tensor = torch.tensor(board).unsqueeze(0).unsqueeze(0).float()
+        state_tensor = torch.tensor(board).unsqueeze(0).unsqueeze(0).float().to(self.device)
         with torch.no_grad():
             q_values = self.q_net(state_tensor).squeeze() # [board_size, board_size]
         for x in range(env.board_size):

@@ -2,7 +2,7 @@
 Author: s-JoL(sl12160010@gmail.com)
 Date: 2025-02-11 19:25:15
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-12 00:52:49
+LastEditTime: 2025-02-12 11:00:50
 FilePath: /RL-ChessMaster/dqn_trainer.py
 Description: 
 
@@ -27,7 +27,8 @@ class DQNTrainer:
                  target_update_freq=100, experience_pool_capacity=10000,
                  batch_size=64, initial_pool_size=3000,
                  experience_pool_update_freq=100,
-                 discard_probability_factor=0.0005):
+                 discard_probability_factor=0.0005, 
+                 device='cuda' if torch.cuda.is_available() else 'cpu'):
         """
         初始化 DQN 训练器.  修改为使用 agent_dict 初始化经验池.
         """
@@ -46,9 +47,12 @@ class DQNTrainer:
                 "batch_size": batch_size,
                 "initial_pool_size": initial_pool_size,
                 "experience_pool_update_freq": experience_pool_update_freq,
-                "discard_probability_factor": discard_probability_factor
+                "discard_probability_factor": discard_probability_factor,
+                "device": device
             }
         )
+        self.device = device
+        print(f"Using device: {self.device}")
         self.board_size = board_size
         self.learning_rate = learning_rate
         self.gamma = gamma
@@ -68,6 +72,7 @@ class DQNTrainer:
 
         # 初始化 Q 网络和目标网络
         self.q_net = DQNNet()
+        self.q_net.load_state_dict(torch.load('q_model_base.pth'))
         self.target_net = DQNNet()
         self.target_net.load_state_dict(self.q_net.state_dict())
 
@@ -104,9 +109,9 @@ class DQNTrainer:
 
         self.step_count += 1
         self.step_count_global += 1
-        ending_samples = self.experience_pool.get_ending_samples()
-        batch = random.sample(ending_samples, min(self.batch_size, len(ending_samples)))
-        # batch = self.experience_pool.sample_experience_batch(self.batch_size)
+        # ending_samples = self.experience_pool.get_ending_samples()
+        # batch = random.sample(ending_samples, min(self.batch_size, len(ending_samples)))
+        batch = self.experience_pool.sample_experience_batch(self.batch_size)
         if not batch:
             return
 
@@ -124,11 +129,11 @@ class DQNTrainer:
         batch_done = np.array([exp['is_terminated'] for exp in batch], dtype=np.bool_)
         batch_next_state = np.array([exp['next_state'] if exp['next_state'] is not None else np.zeros_like(exp['state']) for exp in batch])
 
-        state_tensor = torch.tensor(batch_state).unsqueeze(1).float()
-        action_tensor = torch.tensor(batch_action).long()
-        reward_tensor = torch.tensor(batch_reward)
-        next_state_tensor = torch.tensor(batch_next_state).unsqueeze(1).float()
-        done_mask = torch.tensor(batch_done, dtype=torch.bool)
+        state_tensor = torch.tensor(batch_state).unsqueeze(1).float().to(self.device)
+        action_tensor = torch.tensor(batch_action).long().to(self.device)
+        reward_tensor = torch.tensor(batch_reward).to(self.device)
+        next_state_tensor = torch.tensor(batch_next_state).unsqueeze(1).float().to(self.device)
+        done_mask = torch.tensor(batch_done, dtype=torch.bool).to(self.device)
         self.q_net.train()
         q_values = self.q_net(state_tensor)
 
@@ -175,9 +180,9 @@ class DQNTrainer:
         batch_reward = np.array([exp['reward'] for exp in batch], dtype=np.float32)
 
         # 转换为 tensor
-        state_tensor = torch.tensor(batch_state).unsqueeze(1).float()
-        action_tensor = torch.tensor(batch_action).long()
-        reward_tensor = torch.tensor(batch_reward)
+        state_tensor = torch.tensor(batch_state).unsqueeze(1).float().to(self.device)
+        action_tensor = torch.tensor(batch_action).long().to(self.device)
+        reward_tensor = torch.tensor(batch_reward).to(self.device)
         
         self.q_net.eval()
         # 计算 Q 值
@@ -228,7 +233,7 @@ class DQNTrainer:
                 print(f"--- Episode {episode+1} 评估结果: 胜: {win_count}, 负: {loss_count}, 平: {draw_count}, 胜率: {win_rate:.2f} ---")
                 # Log evaluation metrics
                 wandb.log({
-                    "ending_sample_acc": ending_sample_acc,
+                    "evaluation/ending_sample_acc": ending_sample_acc,
                     "evaluation/win_count": win_count,
                     "evaluation/loss_count": loss_count,
                     "evaluation/draw_count": draw_count,
@@ -353,5 +358,5 @@ if __name__ == '__main__':
         board_size=15, initial_pool_size=5000, experience_pool_capacity=1000,
         experience_pool_update_freq=100, discard_probability_factor=0.0005
     )
-    trainer.train(num_episodes=10000)
+    trainer.train(num_episodes=50000)
     wandb.finish()
