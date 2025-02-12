@@ -2,7 +2,7 @@
 Author: s-JoL(sl12160010@gmail.com)
 Date: 2025-02-11 19:25:15
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-12 11:25:36
+LastEditTime: 2025-02-12 23:43:46
 FilePath: /RL-ChessMaster/agents/dqn_model.py
 Description: 
 
@@ -50,13 +50,13 @@ class DQNNet(nn.Module):
     """
     全卷积 ResNet 风格的 DQN 网络，用于五子棋。
     """
-    def __init__(self, num_residual_blocks=16, device='cuda' if torch.cuda.is_available() else 'cpu'):
+    def __init__(self, num_residual_blocks=8, device='cuda' if torch.cuda.is_available() else 'cpu'):
         super(DQNNet, self).__init__()
         self.device = device
         self.in_channels = 128 # 初始卷积层输出通道数
 
         # 初始卷积层
-        self.conv1 = nn.Conv2d(1, self.in_channels, kernel_size=3, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(2, self.in_channels, kernel_size=3, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(self.in_channels)
         self.relu = nn.ReLU(inplace=True)
 
@@ -78,10 +78,12 @@ class DQNNet(nn.Module):
 
     def forward(self, state):
         """前向传播"""
-        # 确保输入是 float32 类型
-        state = state.float()
+        state = state.long()
         state.to(self.device)
-        state = (state + 1) / 2
+        # 将 1/0/-1 转换为两个通道
+        my_pieces = (state == 1).float()  # 我方棋子的位置
+        opponent_pieces = (state == -1).float()  # 对方棋子的位置
+        state = torch.cat([my_pieces, opponent_pieces], dim=1)  # 组合成 (batch_size, 2, height, width)
         # 初始卷积层
         out = self.conv1(state)
         out = self.bn1(out)

@@ -2,7 +2,7 @@
 Author: s-JoL(sl12160010@gmail.com)
 Date: 2025-02-11 19:25:15
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-12 11:37:19
+LastEditTime: 2025-02-12 21:39:48
 FilePath: /RL-ChessMaster/dqn_trainer.py
 Description: 
 
@@ -22,8 +22,7 @@ from agents.random_agent import RandomAgent # 导入 RandomAgent
 from agents.dqn_agent import DQNAgent
 
 class DQNTrainer:
-    def __init__(self, board_size=15, learning_rate=1e-3, gamma=0.95,
-                 epsilon_start=0.9, epsilon_end=0.05, epsilon_decay_steps=10000,
+    def __init__(self, board_size=15, learning_rate=2e-4, gamma=0.95,
                  target_update_freq=100, experience_pool_capacity=10000,
                  batch_size=1024, initial_pool_size=3000,
                  experience_pool_update_freq=100,
@@ -39,9 +38,6 @@ class DQNTrainer:
                 "board_size": board_size,
                 "learning_rate": learning_rate,
                 "gamma": gamma,
-                "epsilon_start": epsilon_start,
-                "epsilon_end": epsilon_end,
-                "epsilon_decay_steps": epsilon_decay_steps,
                 "target_update_freq": target_update_freq,
                 "experience_pool_capacity": experience_pool_capacity,
                 "batch_size": batch_size,
@@ -56,10 +52,6 @@ class DQNTrainer:
         self.board_size = board_size
         self.learning_rate = learning_rate
         self.gamma = gamma
-        self.epsilon_start = epsilon_start
-        self.epsilon = epsilon_start
-        self.epsilon_end = epsilon_end
-        self.epsilon_decay_steps = epsilon_decay_steps
         self.target_update_freq = target_update_freq
         self.experience_pool_capacity = experience_pool_capacity
         self.batch_size = batch_size
@@ -139,8 +131,12 @@ class DQNTrainer:
 
         actions_index = action_tensor[:, 0] * self.board_size + action_tensor[:, 1]
         q_value = q_values.view(q_values.size(0), -1).gather(dim=1, index=actions_index.unsqueeze(1)).squeeze(1)
-
-        next_q_values = self.target_net(next_state_tensor)
+        
+        self.target_net.eval()
+        with torch.no_grad():
+            next_q_values = self.target_net(next_state_tensor)
+        invalid_next_state_action = torch.tensor(batch_next_state!=0).unsqueeze(1).float().to(self.device)
+        next_q_values = next_q_values - invalid_next_state_action * 1e6
         max_next_q_value = next_q_values.view(next_q_values.size(0), -1).max(dim=1)[0]
         target_q_value = reward_tensor + self.gamma * max_next_q_value * (~done_mask).float()
 
@@ -149,8 +145,6 @@ class DQNTrainer:
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-
-        self.epsilon = max(self.epsilon_end, self.epsilon_start - (self.epsilon_start - self.epsilon_end) * self.step_count / self.epsilon_decay_steps)
 
         if self.step_count % self.target_update_freq == 0:
             self.target_net.load_state_dict(self.q_net.state_dict())
@@ -212,12 +206,11 @@ class DQNTrainer:
 
             episode_time = time.time() - episode_start_time
 
-            print(f"Episode: {episode+1}/{num_episodes}, Avg Loss: {loss:.4f}, Epsilon: {self.epsilon:.2f}, Time: {episode_time:.2f}s")
+            print(f"Episode: {episode+1}/{num_episodes}, Avg Loss: {loss:.4f}, Time: {episode_time:.2f}s")
             # Log basic metrics every episode
             wandb.log({
                 "episode": episode + 1,
                 "loss": loss if loss else 0,
-                "epsilon": self.epsilon,
                 "episode_time": episode_time
             })
 
@@ -254,7 +247,7 @@ class DQNTrainer:
         """
         print("\n--- 开始更新经验池 ---")
         update_start_time = time.time()
-        num_new_experiences = 300
+        num_new_experiences = 1000
 
         # 初始化 Agent 实例 (在 update_experience_pool 中初始化)
         rule_based_agent = RuleBasedAgent()
@@ -355,8 +348,8 @@ class DQNTrainer:
 
 if __name__ == '__main__':
     trainer = DQNTrainer(
-        board_size=15, initial_pool_size=5000, experience_pool_capacity=1000,
-        experience_pool_update_freq=200, discard_probability_factor=0.0005
+        board_size=15, initial_pool_size=10000, experience_pool_capacity=5000,
+        experience_pool_update_freq=100, discard_probability_factor=0.0005
     )
     trainer.train(num_episodes=200000)
     wandb.finish()
