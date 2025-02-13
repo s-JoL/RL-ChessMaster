@@ -22,9 +22,9 @@ from agents.random_agent import RandomAgent # 导入 RandomAgent
 from agents.dqn_agent import DQNAgent
 
 class DQNTrainer:
-    def __init__(self, board_size=15, learning_rate=2e-4, gamma=0.95,
-                 target_update_freq=100, experience_pool_capacity=10000,
-                 batch_size=1024, initial_pool_size=3000,
+    def __init__(self, board_size=15, learning_rate=1e-3, gamma=0.95,
+                 target_update_freq=50, experience_pool_capacity=10000,
+                 batch_size=2048, initial_pool_size=3000,
                  experience_pool_update_freq=100,
                  discard_probability_factor=0.0005, 
                  device='cuda' if torch.cuda.is_available() else 'cpu'):
@@ -69,7 +69,7 @@ class DQNTrainer:
         self.target_net.load_state_dict(self.q_net.state_dict())
 
         # 初始化优化器
-        self.optimizer = optim.AdamW(self.q_net.parameters(), lr=learning_rate)
+        self.optimizer = optim.AdamW(self.q_net.parameters(), lr=learning_rate, weight_decay=1e-2)
 
         # 初始化经验池 (传递 discard_probability_factor, 修改为 agent_dict 初始化)
         self.experience_pool = ExperiencePool(
@@ -349,7 +349,7 @@ class DQNTrainer:
 if __name__ == '__main__':
     trainer = DQNTrainer(
         board_size=15, initial_pool_size=10000, experience_pool_capacity=5000,
-        experience_pool_update_freq=100, discard_probability_factor=0.0005
+        experience_pool_update_freq=50, discard_probability_factor=0.005
     )
     trainer.train(num_episodes=200000)
     wandb.finish()
