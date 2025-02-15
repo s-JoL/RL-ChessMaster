@@ -2,7 +2,7 @@
 Author: s-JoL(sl12160010@gmail.com)
 Date: 2025-02-11 19:25:15
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-12 11:02:27
+LastEditTime: 2025-02-15 22:50:40
 FilePath: /RL-ChessMaster/agents/dqn_agent.py
 Description: 
 
@@ -58,7 +58,7 @@ class DQNAgent(BaseAgent):
         except Exception as e:
             print(f"加载 DQN 模型时发生错误: {e}")
 
-    def select_action(self, env): # 修改输入为 env
+    def select_action(self, env):
         """
         使用 DQN 网络选择动作。
 
@@ -68,45 +68,94 @@ class DQNAgent(BaseAgent):
         Returns:
             tuple: 选择的动作坐标 (x, y)，或 None 如果没有合法动作。
         """
-        board = env.board # 从 env 中获取棋盘
-        legal_actions = env.get_legal_actions() # 从 env 中获取合法动作
-        if not legal_actions:
-            return None # 没有合法动作
+        actions = self.selection_action_batch([env])
+        return actions[0] if actions else None
 
-        state_tensor = torch.tensor(board).unsqueeze(0).unsqueeze(0).float().to(self.device) # 转换为 DQN 网络需要的输入格式 [1, 1, board_size, board_size]
-        with torch.no_grad():
-            q_values = self.q_net(state_tensor).squeeze() #  [board_size, board_size]
-
-        best_action = None
-        best_q_value = -float('inf')
-
-        for action in legal_actions:
-            q_value = q_values[action[0], action[1]].item() # 获取该动作的 Q 值
-            if q_value > best_q_value:
-                best_q_value = q_value
-                best_action = action
-
-        return (int(best_action[0]), int(best_action[1])) # 返回 Q 值最大的合法动作
-
-    def get_evaluation_map(self, env): # 修改输入为 env
+    def get_evaluation_map(self, env):
         """
         返回基于 DQN 评估的评估 map。
-
-        对于 DQN Agent，评估 map 可以理解为每个位置的 Q 值。
-        返回一个形如： {(i,j): {'q_value': ...}, ...} 的字典。
 
         Args:
             env (GomokuEnv): GomokuEnv 实例，提供棋盘状态和游戏环境信息。
 
         Returns:
-            dict: 评估 map，键为坐标 (x, y)，值为包含 'q_value' 键的字典。
+            dict: 评估 map，形如 {(i,j): {'offense': 0, 'defense': 0, 'combined': q_value}, ...}
         """
         evaluation_map = {}
-        board = env.board # 从 env 中获取棋盘
-        state_tensor = torch.tensor(board).unsqueeze(0).unsqueeze(0).float().to(self.device)
+        state_tensor = torch.tensor(env.board).unsqueeze(0).unsqueeze(0).float().to(self.device)
+        
         with torch.no_grad():
-            q_values = self.q_net(state_tensor).squeeze() # [board_size, board_size]
-        for x in range(env.board_size):
-            for y in range(env.board_size):
-                evaluation_map[(x, y)] = {'combined': (q_values[x, y].item()+1)*500, 'offense': 0, 'defense': 0} # 存储每个位置的 Q 值
+            q_values = self.q_net(state_tensor).squeeze()  # [board_size, board_size]
+            
+            # Create legal actions mask
+            legal_actions = env.get_legal_actions()
+            legal_mask = torch.zeros_like(q_values, dtype=torch.bool)
+            legal_mask[torch.tensor([x[0] for x in legal_actions], dtype=torch.long),
+                    torch.tensor([x[1] for x in legal_actions], dtype=torch.long)] = True
+            
+            # Mask illegal actions
+            masked_q_values = torch.where(legal_mask, q_values, torch.tensor(0.).to(self.device))
+            
+            # Convert to evaluation map
+            for x in range(env.board_size):
+                for y in range(env.board_size):
+                    if legal_mask[x, y]:
+                        evaluation_map[(x, y)] = {
+                            'combined': (masked_q_values[x, y].item() + 1) * 500,
+                            'offense': 0,
+                            'defense': 0
+                        }
+                    else:
+                        evaluation_map[(x, y)] = {
+                            'combined': 0,
+                            'offense': 0,
+                            'defense': 0
+                        }
+        
         return evaluation_map
+
+    def selection_action_batch(self, envs):
+        """
+        批量选择下一步行动。
+
+        Args:
+            envs (list[GomokuEnv]): GomokuEnv 实例列表。
+
+        Returns:
+            list[tuple]: 选择的落子坐标列表 [(row, col), ...]。
+        """
+        if not envs:
+            return []
+
+        # Prepare batch input
+        batch_states = torch.stack([
+            torch.tensor(env.board).unsqueeze(0).float() 
+            for env in envs
+        ]).to(self.device)  # [batch_size, 1, board_size, board_size]
+
+        with torch.no_grad():
+            # Get Q-values for all states
+            q_values = self.q_net(batch_states).squeeze(1)  # [batch_size, board_size, board_size]
+            
+            # Create legal actions mask for each environment
+            legal_masks = torch.zeros_like(q_values, dtype=torch.bool)
+            for i, env in enumerate(envs):
+                legal_actions = env.get_legal_actions()
+                if legal_actions:
+                    legal_masks[i, torch.tensor([x[0] for x in legal_actions], dtype=torch.long),
+                            torch.tensor([x[1] for x in legal_actions], dtype=torch.long)] = True
+            
+            # Mask illegal actions
+            masked_q_values = torch.where(legal_masks, q_values, 
+                                        torch.tensor(-1e6).to(self.device))
+            
+            # Get best legal actions
+            best_idxs = torch.argmax(masked_q_values.view(len(envs), -1), dim=1)
+            best_x = best_idxs // envs[0].board_size
+            best_y = best_idxs % envs[0].board_size
+
+        # Convert to list of tuples
+        actions = [(int(x), int(y)) if m.any() else None 
+                for x, y, m in zip(best_x, best_y, legal_masks)]
+        
+        return actions

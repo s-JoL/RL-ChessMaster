@@ -2,7 +2,7 @@
 Author: s-JoL(sl12160010@gmail.com)
 Date: 2025-02-10 02:03:38
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-10 23:52:12
+LastEditTime: 2025-02-15 22:37:43
 FilePath: /RL-ChessMaster/tests/test_board_utils.py
 Description: 
 
@@ -13,7 +13,7 @@ import numpy as np
 
 from utils.board_utils import (
     check_winner, is_alive_pattern, analyze_direction, compute_score,
-    choose_best_position, calculate_position_weight
+    calculate_position_weight
 )
 
 # 假定在 utils/board_utils.py 中定义了如下全局变量
@@ -149,30 +149,6 @@ class TestGomokuFunctions(unittest.TestCase):
         # 计算防守评分（同样局面，mode 为 defense），注意防守评分仅乘以防守因子 0.8
         defense = compute_score(board, 7, 7, 1, win_length=5, mode="defense")
         self.assertAlmostEqual(defense, offense * 0.8, places=3)
-
-    # ---------------------- 测试 choose_best_position ----------------------
-    def test_choose_best_position_normal(self):
-        """测试从候选位置中选择离中心最近的点"""
-        positions = [(0, 0), (7, 7), (14, 14)]
-        best = choose_best_position(positions, self.board_size)
-        self.assertEqual(best, (7, 7))
-
-    def test_choose_best_position_invalid_type(self):
-        """测试传入非整数坐标时抛出 TypeError"""
-        positions = [("a", 0)]
-        with self.assertRaises(TypeError):
-            choose_best_position(positions, self.board_size)
-
-    def test_choose_best_position_out_of_bounds(self):
-        """测试传入超出棋盘范围的坐标时抛出 ValueError"""
-        positions = [(16, 0)]
-        with self.assertRaises(ValueError):
-            choose_best_position(positions, self.board_size)
-
-    def test_choose_best_position_empty(self):
-        """测试候选位置为空时返回 None"""
-        best = choose_best_position([], self.board_size)
-        self.assertIsNone(best)
 
     # ---------------------- 测试 calculate_position_weight ----------------------
     def test_calculate_position_weight_center_and_corner(self):

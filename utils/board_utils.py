@@ -2,7 +2,7 @@
 Author: s-JoL(sl12160010@gmail.com)
 Date: 2025-02-09 20:50:26
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-09 21:17:05
+LastEditTime: 2025-02-15 22:41:28
 FilePath: /RL-ChessMaster/utils/board_utils.py
 Description: 
 
@@ -10,77 +10,67 @@ Copyright (c) 2025 by LiangSong(sl12160010@gmail.com), All Rights Reserved.
 """
 import numpy as np
 
-def check_winner(board, x, y, win_length=5, cache=None):
+def check_winner(board, x, y, win_length=5):
     """
-    检查给定位置是否形成获胜连珠。
+    检查在棋盘 (x, y) 位置落子后，是否出现获胜方。
+
+    参数:
+      board: 当前棋盘 (numpy 数组).
+      x, y:  最后落子的坐标.
+      win_length: 获胜需要的连子数 (默认 5).
+
+    返回值:
+      bool: 如果有玩家获胜则返回 True, 否则返回 False.
     """
-    if board.shape[0] < win_length or board.shape[1] < win_length:
+    rows, cols = board.shape
+    if rows < win_length or cols < win_length:
         raise ValueError(f"Board size must be at least {win_length}x{win_length}")
-    
+
     player = board[x, y]
     if player == 0:
         return False
 
-    if cache is None:
-        cache = {}
-    pos_key = (x, y, player, win_length)
-    if pos_key in cache:
-        return cache[pos_key]
-
-    directions = [
-        [(1, 0), (-1, 0)],   # 垂直
-        [(0, 1), (0, -1)],   # 水平
-        [(1, 1), (-1, -1)],  # 主对角线
-        [(1, -1), (-1, 1)]   # 副对角线
-    ]
-    
-    for direction_pair in directions:
-        count = 1  # 包含当前位置
-        for dx, dy in direction_pair:
+    directions = [((1, 0), (-1, 0)), ((0, 1), (0, -1)), ((1, 1), (-1, -1)), ((1, -1), (-1, 1))]
+    for d1, d2 in directions:
+        count = 1
+        for dx, dy in (d1, d2):
             curr_x, curr_y = x + dx, y + dy
-            while (0 <= curr_x < board.shape[0] and 
-                   0 <= curr_y < board.shape[1] and 
-                   board[curr_x, curr_y] == player):
+            while 0 <= curr_x < rows and 0 <= curr_y < cols and board[curr_x, curr_y] == player:
                 count += 1
                 if count >= win_length:
-                    cache[pos_key] = True
                     return True
                 curr_x += dx
                 curr_y += dy
-                
-    cache[pos_key] = False
     return False
 
 def is_alive_pattern(board, x, y, length):
     """
-    检查是否是活棋型（两端都是空的）。
-    这里要求从 (x,y) 出发、连续达到 length 时，两端必须均为空。
+    检查在棋盘 (x, y) 位置是否形成指定长度的活棋型 (两端都为空位).
+
+    参数:
+      board: 当前棋盘 (numpy 数组).
+      x, y:  待检查的位置坐标.
+      length: 需要检查的棋子长度.
+
+    返回值:
+      bool: 如果是活棋型则返回 True, 否则返回 False.
     """
-    directions = [
-        [(1, 0), (-1, 0)],   # 垂直
-        [(0, 1), (0, -1)],   # 水平
-        [(1, 1), (-1, -1)],  # 主对角线
-        [(1, -1), (-1, 1)]   # 副对角线
-    ]
-    
+    rows, cols = board.shape
     player = board[x, y]
-    for direction_pair in directions:
-        count = 1  # 包括当前位置
+    directions = [((1, 0), (-1, 0)), ((0, 1), (0, -1)), ((1, 1), (-1, -1)), ((1, -1), (-1, 1))]
+    for d1, d2 in directions:
+        count = 1
         open_ends = 0
-        for dx, dy in direction_pair:
+        for dx, dy in (d1, d2):
             curr_x, curr_y = x, y
             for _ in range(length - 1):
                 curr_x += dx
                 curr_y += dy
-                if (0 <= curr_x < board.shape[0] and 
-                    0 <= curr_y < board.shape[1] and 
-                    board[curr_x, curr_y] == player):
+                if 0 <= curr_x < rows and 0 <= curr_y < cols and board[curr_x, curr_y] == player:
                     count += 1
                 else:
                     break
-            if (0 <= curr_x < board.shape[0] and 
-                0 <= curr_y < board.shape[1] and 
-                board[curr_x, curr_y] == 0):
+            if 0 <= curr_x < rows and 0 <= curr_y < cols and board[curr_x, curr_y] == 0:
                 open_ends += 1
         if count >= length and open_ends == 2:
             return True
@@ -88,29 +78,33 @@ def is_alive_pattern(board, x, y, length):
 
 def analyze_direction(board, x, y, color, directions):
     """
-    分析以 (x,y) 为中心、颜色为 color，
-    沿 directions 指定的两个方向的情况。
-    
-    返回：
-      - pure_count: 连续同色棋子的数量（包含当前位置）。
-      - bonus: 如果检测到“跳子”则额外加分（0.5或1）。
-      - total_blocks: 两侧被封堵的数目（边界或对方棋子）。
-      - jump_used: 是否检测到跳子。
+    分析指定位置在给定方向上的棋型，返回连续子数、跳子 bonus、封堵数等信息。
+
+    参数:
+      board: 当前棋盘 (numpy 数组).
+      x, y:  待分析的位置坐标.
+      color:  棋子颜色 (1 或 -1).
+      directions:  要分析的方向列表，每个方向为一对元组，如 [(dx1, dy1), (dx2, dy2)].
+
+    返回值:
+      tuple: (pure_count, bonus, total_blocks, jump_used)
+             - pure_count:  连续同色棋子的数量 (包含当前位置).
+             - bonus:  跳子 bonus (0, 0.5 或 1).
+             - total_blocks:  两侧被封堵的个数 (0 表示活型).
+             - jump_used:  是否使用了跳子.
     """
-    def in_bounds(a, b):
-        return 0 <= a < board.shape[0] and 0 <= b < board.shape[1]
-    
-    cont = [0, 0]       # 两个方向的连续同色棋子数量
-    jump = [False, False]  # 两个方向是否存在跳子
-    block = [0, 0]      # 两个方向是否被封堵
+    rows, cols = board.shape
+    cont = [0, 0]
+    jump = [False, False]
+    block = [0, 0]
 
     for i, (dx, dy) in enumerate(directions):
         step = 1
         while True:
             nx = x + dx * step
             ny = y + dy * step
-            if not in_bounds(nx, ny):
-                block[i] = 1  # 越界视为封堵
+            if not (0 <= nx < rows and 0 <= ny < cols):
+                block[i] = 1
                 break
             cell = board[nx, ny]
             if cell == color:
@@ -118,27 +112,20 @@ def analyze_direction(board, x, y, color, directions):
                 step += 1
             else:
                 if cell != 0:
-                    block[i] = 1  # 对方棋子视为封堵
+                    block[i] = 1
                 break
         
-        # 若没有连续棋子，尝试判断跳子
         if cont[i] == 0:
-            nx = x + dx
-            ny = y + dy
-            if in_bounds(nx, ny) and board[nx, ny] == 0:
-                nx2 = x + dx * 2
-                ny2 = y + dy * 2
-                if in_bounds(nx2, ny2) and board[nx2, ny2] == color:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < rows and 0 <= ny < cols and board[nx, ny] == 0:
+                nx2, ny2 = x + dx * 2, y + dy * 2
+                if 0 <= nx2 < rows and 0 <= ny2 < cols and board[nx2, ny2] == color:
                     jump[i] = True
 
     pure_count = 1 + cont[0] + cont[1]
     total_blocks = block[0] + block[1]
     jump_used = jump[0] or jump[1]
-    bonus = 0
-    if jump[0] and jump[1]:
-        bonus = 1
-    elif jump[0] or jump[1]:
-        bonus = 0.5 if (cont[0] + cont[1]) > 0 else 1
+    bonus = 1 if jump[0] and jump[1] else (0.5 if (jump[0] or jump[1]) and (cont[0] + cont[1] > 0) else (1 if jump[0] or jump[1] else 0))
     return pure_count, bonus, total_blocks, jump_used
 
 def calculate_position_weight(board_size, x, y):
@@ -291,29 +278,3 @@ def evaluate_board_map(board, player, win_length=5, offense_weight=1.0, defense_
                 off, defe, comb = evaluate_cell(board, x, y, player, win_length, offense_weight, defense_weight)
                 score_map[(x, y)] = {'offense': off, 'defense': defe, 'combined': comb}
     return score_map
-
-def choose_best_position(positions, board_size):
-    """
-    从给定的空位列表中选择最靠近中心的点。
-    """
-    if not positions:
-        return None
-
-    # 验证坐标合法性
-    for x, y in positions:
-        if not (isinstance(x, (int, np.integer)) and isinstance(y, (int, np.integer))):
-            raise TypeError("Coordinates must be integers")
-        if not (0 <= int(x) < board_size and 0 <= int(y) < board_size):
-            raise ValueError("Coordinates must be within board bounds")
-
-    center = board_size // 2
-    sorted_positions = sorted(
-        positions,
-        key=lambda pos: (
-            abs(int(pos[0]) - center) + abs(int(pos[1]) - center),
-            abs(int(pos[0]) - center),
-            abs(int(pos[1]) - center)
-        )
-    )
-    best_x, best_y = sorted_positions[0]
-    return (int(best_x), int(best_y))

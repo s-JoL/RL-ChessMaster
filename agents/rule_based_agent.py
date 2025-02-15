@@ -2,14 +2,14 @@
 Author: s-JoL(sl12160010@gmail.com)
 Date: 2025-02-11 19:25:15
 LastEditors: s-JoL(sl12160010@gmail.com)
-LastEditTime: 2025-02-11 23:08:07
+LastEditTime: 2025-02-15 22:36:24
 FilePath: /RL-ChessMaster/agents/rule_based_agent.py
 Description: 
 
 Copyright (c) 2025 by LiangSong(sl12160010@gmail.com), All Rights Reserved. 
 """
 from agents.base_agent import BaseAgent
-from utils.board_utils import evaluate_board_map, calculate_position_weight, choose_best_position
+from utils.board_utils import evaluate_board_map, calculate_position_weight
 
 class RuleBasedAgent(BaseAgent):
     """
@@ -38,11 +38,7 @@ class RuleBasedAgent(BaseAgent):
             if overall > best_value:
                 best_value = overall
                 best_move = (x, y)
-        if best_move is not None:
-            return best_move
-        # 若无评估候选（极端情况），则选择靠中心的位置
-        empty_positions = env.get_legal_actions() # 从 env 获取合法动作
-        return choose_best_position(empty_positions, board.shape[0]) # 使用棋盘尺寸
+        return best_move
 
     def get_evaluation_map(self, env):
         """
