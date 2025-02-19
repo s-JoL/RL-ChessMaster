@@ -349,7 +349,8 @@ class DQNTrainer:
 if __name__ == '__main__':
     trainer = DQNTrainer(
         board_size=15, initial_pool_size=10000, experience_pool_capacity=5000,
-        experience_pool_update_freq=50, discard_probability_factor=0.005
+        experience_pool_update_freq=250, discard_probability_factor=0.005, target_update_freq=500, 
+        learning_rate=1e-4, batch_size=1024
     )
     trainer.train(num_episodes=200000)
     wandb.finish()
